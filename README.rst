@@ -52,11 +52,13 @@ Testing in a virtualenv
     ./bin/py.test test
 
 
+.. _`More examples section`:
 
 More examples
 ----------------------------------------------
 
 .. code::
+
     >>> import anchorman
     >>> text = "The quick brown fox jumps over the lazy dog while the red
     fox sleeps."
