@@ -6,7 +6,7 @@ from lxml import etree
 from tree import to_tree, from_tree
 
 
-def remove_links(content, selector='.//a[@class="anchorman"]', markup_format={}):
+def remove_links(content, markup_format, selector='.//a[@class="anchorman"]'):
     """
     Takes a string of HTML or text and removes all the tags
     - specified by selector - and leaves their content.
@@ -52,9 +52,11 @@ def linker_format(link_format):
     return new_link_format, selector
 
 
-def link_fn(key, value, key_attributes, match, attributes={}):
+def link_fn(value, key_attributes, match, attributes=None):
     # print 'link_fn', key, value, key_attributes, match
     # apply special attributes for every item to global attributes or iteself
+    if attributes is None:
+        attributes = {}
     ka_applied, ka = [], {}
     if key_attributes:
         ka = dict(key_attributes)
@@ -88,17 +90,8 @@ def link_fn(key, value, key_attributes, match, attributes={}):
 #     return False
 
 
-def get_newlink(key, value, key_attributes, replacement_fn, match, attributes):
-    # create a new_link of the item and replace occurences
-    return replacement_fn(key,
-                          value,
-                          key_attributes,
-                          match,
-                          attributes=attributes)
-
-
-def replace_in_element(count, element, key, value, key_attributes, replacement_fn,
-    replaces=None, attributes=None, all_links=[]): # ignore_fn=lambda x: False,
+def replace_in_element(count, element, key, value, key_attributes,
+    replacement_fn, attributes): # replaces,  ignore_fn=lambda x: False,
 
     re_word = key.replace('.', '\.')
     re_capture = u"([^\w\-/äöüßÄÖÜ])(%s)([^\w\-/äöüßÄÖÜ])" % re_word
@@ -116,10 +109,10 @@ def replace_in_element(count, element, key, value, key_attributes, replacement_f
         # replace strings with string
         for tail in [False, True]:
             thistext = element.tail if tail else element.text
-            if thistext != None:
+            if thistext is not None:
                 iterator = re.finditer(re_capture, " %s " % thistext)
                 iterator = reversed(list(iterator))
-                final, lastend = [], 0
+                lastend = 0
 
                 pre = attributes['highlighting'].get('pre', '-set-pre-marker-')
                 post = attributes['highlighting'].get('post', '-set-post-marker-')
@@ -137,12 +130,12 @@ def replace_in_element(count, element, key, value, key_attributes, replacement_f
                                 thistext[end-2:])
                         if tail:
                             element.tail = thistext
-                        else:
-                            element.text = thistext
+                        # else:
+                        #     element.text = thistext
 
     else:
         # replace string with links in element
-        final, lastend= [], 0
+        lastend = 0
 
         if element.text:
 
@@ -161,8 +154,8 @@ def replace_in_element(count, element, key, value, key_attributes, replacement_f
                 chain.reverse()
 
                 for i,(after,match) in enumerate(chain):
-                    newlink = get_newlink(key, value, key_attributes,
-                        replacement_fn, match, attributes)
+                    newlink = replacement_fn(value, key_attributes,
+                            match, attributes=attributes)
                     if element.tag != newlink.tag:
                         newlink.tail = after
                         if i < len(chain)-1:
@@ -192,8 +185,8 @@ def replace_in_element(count, element, key, value, key_attributes, replacement_f
                         if i == 0:
                             element.tail = textbefore
                             continue
-                        newlink = get_newlink(key, value, key_attributes,
-                            replacement_fn, match, attributes)
+                        newlink = replacement_fn(value, key_attributes,
+                            match, attributes=attributes)
                         element.addnext(newlink)
                         count += 1
                         if i <= len(chain)-1:
@@ -202,7 +195,7 @@ def replace_in_element(count, element, key, value, key_attributes, replacement_f
 
 
 def replace_token(content, key, value, key_attributes, replacement_fn,
-    count=0, replaces=None, link_format=None):
+    replaces, link_format, count=0):
     """
     Takes content as a string, a match to replace and the replacement.
 
@@ -225,9 +218,10 @@ def replace_token(content, key, value, key_attributes, replacement_fn,
                                     value,
                                     key_attributes,
                                     replacement_fn,
-                                    replaces=replaces,
-                                    # ignore_fn=ignore_fn,
-                                    attributes=link_format)
+                                    link_format
+                                    # replaces,
+                                    # ignore_fn=ignore_fn
+                                    )
 
         if replaces and count == replaces:
             return (from_tree(root), count)
@@ -235,7 +229,7 @@ def replace_token(content, key, value, key_attributes, replacement_fn,
     return (from_tree(root), count)
 
 
-def add_links(text, links, **kwargs):
+def add_links(text, links, replaces_per_item=None, markup_format=None):
     """
     Takes html and a dictionary of words to highlight and links. Surrounds
     the matched words with a specified html element - by default a link.
@@ -254,13 +248,8 @@ def add_links(text, links, **kwargs):
             link_key.get('value', key),
             link_key.get('attributes', []),
             replacement_format,
-            replaces=kwargs.get('replaces_per_item', None),
-            link_format=kwargs.get('markup_format', None),
-            )
+            replaces_per_item,
+            markup_format)
         append((key, count))
 
     return text, counts
-
-
-# if __name__ == "__main__":
-#     pass
